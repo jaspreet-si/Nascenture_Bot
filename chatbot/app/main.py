@@ -6,7 +6,7 @@ print("PYTHON PATH:", sys.path)
 current_dir = os.path.dirname(os.path.abspath(__file__))  # chatbot/app/
 project_root = os.path.abspath(os.path.join(current_dir, "..", ".."))  # chatbot/
 sys.path.insert(0, project_root)
-
+print("✅ Added to sys.path:", project_root)
 from fastapi import FastAPI
 from api.v1.sync import router as sync_router
 from api.v1.chat import router as chat_router
