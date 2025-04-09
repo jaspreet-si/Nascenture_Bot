@@ -1,5 +1,6 @@
 import sys
 import os
+print("PYTHON PATH:", sys.path)
 
 # Add project root to PYTHONPATH so imports like 'api.v1' work
 current_dir = os.path.dirname(os.path.abspath(__file__))  # chatbot/app/
