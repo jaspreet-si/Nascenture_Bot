@@ -4,7 +4,7 @@ print("PYTHON PATH:", sys.path)
 
 # Add project root to PYTHONPATH so imports like 'api.v1' work
 current_dir = os.path.dirname(os.path.abspath(__file__))  # chatbot/app/
-project_root = os.path.abspath(os.path.join(current_dir, ".."))  # chatbot/
+project_root = os.path.abspath(os.path.join(current_dir,))  # chatbot/
 sys.path.insert(0, project_root)
 print("✅ Added to sys.path:", project_root)
 from fastapi import FastAPI
