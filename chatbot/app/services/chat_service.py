@@ -115,43 +115,43 @@ def chat_bot(query,session_id):
         
         # print("Time taken for response:", elapsed_time, "seconds")
         # return response['answer']
-        
-
-        selected_retriever = None
-
-        # Step 1: Embed the query manually
         query_vector = embeddings.embed_query(query)
-
-        # Step 2: Query FAQ index manually
         faq_result = faq_raw_index.query(
             vector=query_vector,
             top_k=1,
             include_metadata=True
         )
-
+        
+        # Check for high-confidence FAQ match
         if faq_result.matches and len(faq_result.matches) > 0:
-            print("faq result",faq_result.matches)
             top_match = faq_result.matches[0]
-            print(f"Top match from FAQ index: {top_match}")
-            matched_question = top_match.metadata.get("question", "")
             score = top_match.score
-
             print(f"[FAQ Match Score: {score}]")
-            print(f"[Matched Question: {matched_question}]")
-
-            # Check similarity score and if the matched question is similar enough
-            if matched_question.lower() == query.lower() and score > 0.75:  # You can adjust this threshold
-                print("Using FAQ index...")
-                faq_retriever = faq_index.as_retriever(search_type="similarity", search_kwargs={"k": 2})
-                selected_retriever = faq_retriever
-
-        # Fallback to scraped index
-        if selected_retriever is None:
-            scraped_retriever = scraped_index.as_retriever(search_type="similarity", search_kwargs={"k": 5})
-            selected_retriever = scraped_retriever
+            
+            if score > 0.77:  # High confidence match
+                matched_answer = top_match.metadata.get("answer", "")
+                if matched_answer:
+                    # Add to memory for conversation history
+                    session["memory"].chat_memory.add_user_message(query)
+                    session["memory"].chat_memory.add_ai_message(matched_answer)
+                    session["last_active"] = datetime.now()
+                    return matched_answer
+        
+        # Step 2: If no direct FAQ match, try retrieval-based approach
+        # First determine which retriever to use
+        # if faq_result.matches and len(faq_result.matches) > 0 and top_match.score > 0.75:
+        #     # Good but not perfect match - use FAQ retriever
+        #     selected_retriever = faq_index.as_retriever(search_type="similarity", search_kwargs={"k": 2})
+        # else:
+        #     # Use scraped content retriever
+        selected_retriever = scraped_index.as_retriever(search_type="similarity", search_kwargs={"k": 5})
+        
+        # Get documents from selected retriever
         docs = selected_retriever.get_relevant_documents(query)
+        
+        # Handle case where no documents are found
         if not docs:
-            return "I don't have infomation about it right now. Please try again later."
+            return "I don't have information about it right now. Please try again later."
         # Step 3: Build QA chain
         qa_chain = create_qa_chain(session["memory"], selected_retriever)
 
