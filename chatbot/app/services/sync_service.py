@@ -22,6 +22,22 @@ def scrape_website(url):
                 cleaned_text = re.sub(r'\s+', ' ', text)
                 text_content.append(cleaned_text)
 
+        full_text = " ".join(text_content)
+
+        # Extract email addresses
+        email_matches = re.findall(r'\b[\w\.-]+@[\w\.-]+\.\w{2,4}\b', full_text)
+        emails = list(set(email_matches))
+
+        # Extract phone numbers (basic international + local pattern)
+        phone_matches = re.findall(
+            r'(\+?\d{1,3}[-.\s]??\(?\d{1,4}\)?[-.\s]??\d{2,4}[-.\s]??\d{3,5})', full_text)
+        phones = list(set(phone_matches))
+
+        if emails:
+            text_content.append("\nEmails found:\n" + "\n".join(emails))
+        if phones:
+            text_content.append("\nPhone Numbers found:\n" + "\n".join(phones))
+
         return "\n".join(text_content)
     except Exception as e:
         print(f"[ERROR] Error scraping {url}: {e}")
