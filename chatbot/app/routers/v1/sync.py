@@ -27,9 +27,9 @@ async def sync_url_data_pinecone(url: URLInput):
         
         metadatas = [{"source": url.url} for _ in texts]  # no need for 'id' inside metadata
         ids = [f"{url.id}_{i}" for i in range(len(texts))]
-
-        vectorstore = PineconeVectorStore(index=scraped_index, embedding=embeddings, text_key="text")
-        vectorstore.add_texts(texts, metadatas=metadatas, ids=ids)
+        scraped_index.add_texts(texts, metadatas=metadatas, ids=ids)
+        # vectorstore = PineconeVectorStore(index=scraped_index, embedding=embeddings, text_key="text")
+        # vectorstore.add_texts(texts, metadatas=metadatas, ids=ids)
 
         return {"status": "success", "message": f"Synced URL {url.url} to Pinecone."}
 

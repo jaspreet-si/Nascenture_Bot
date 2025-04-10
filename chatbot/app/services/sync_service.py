@@ -18,7 +18,7 @@ def scrape_website(url):
             tag.extract()
 
         text_content = []
-        for tag in soup.find_all(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'div']):
+        for tag in soup.find_all(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'div',]):
             text = tag.get_text(strip=True)
             if text:
                 cleaned_text = re.sub(r'\s+', ' ', text)
@@ -26,9 +26,16 @@ def scrape_website(url):
 
         # Add footer info as JSON string
         footer_data = scrape_footer_info(soup)
+        print("[INFO] Footer data:", footer_data)
+        
         if footer_data:
-            text_content.append("\n[Footer Info]\n" + json.dumps(footer_data, indent=2))
-
+            footer_lines = []
+            for key, values in footer_data.items():
+                if values:
+                    footer_lines.append(f"{key.capitalize()}:")
+                    footer_lines.extend(values)
+            text_content.append("\n".join(footer_lines))
+        print("[INFO] Text content:", text_content)
         return "\n".join(text_content)
 
     except Exception as e:
@@ -48,40 +55,41 @@ def scrape_footer_info(soup):
         for tag in footer(['script', 'style']):
             tag.decompose()
 
-        data = {
-            "addresses": [],
-            "emails": [],
-            "phones": [],
-            "services": [],
-            "quick_links": [],
-            "social_links": []
-        }
+     
+        addresses = []
+        emails = []
+        phones = []
 
         text = footer.get_text()
 
-        data["emails"] = list(set(re.findall(r'\b[\w\.-]+@[\w\.-]+\.\w{2,4}\b', text)))
-        data["phones"] = list(set(re.findall(r'(\+?\d{1,3}[-.\s]??\(?\d{1,4}\)?[-.\s]??\d{2,4}[-.\s]??\d{3,5})', text)))
+        # Extract emails and phone numbers
+        emails = list(set(re.findall(r'\b[\w\.-]+@[\w\.-]+\.\w{2,4}\b', text)))
+        phones = list(set(re.findall(r'(\+?\d{1,3}[-.\s]??\(?\d{1,4}\)?[-.\s]??\d{2,4}[-.\s]??\d{3,5})', text)))
 
+        # Extract addresses from <address> tags
         for addr in footer.find_all('address'):
             addr_text = addr.get_text(strip=True)
             if addr_text:
-                data["addresses"].append(addr_text)
+                addresses.append(addr_text)
+        # for link in footer.select('ul li a[href]'):
+        #     link_text = link.get_text(strip=True)
+        #     href = link['href']
+        #     if any(keyword in href.lower() for keyword in ["about", "contact", "blog", "career"]):
+        #         data["quick_links"].append({"text": link_text, "url": href})
+        #     elif any(keyword in href.lower() for keyword in ["development", "design"]):
+        #         data["services"].append({"text": link_text, "url": href})
 
-        for link in footer.select('ul li a[href]'):
-            link_text = link.get_text(strip=True)
-            href = link['href']
-            if any(keyword in href.lower() for keyword in ["about", "contact", "blog", "career"]):
-                data["quick_links"].append({"text": link_text, "url": href})
-            elif any(keyword in href.lower() for keyword in ["development", "design"]):
-                data["services"].append({"text": link_text, "url": href})
+        # for social in footer.select('.social a[href]'):
+        #     href = social.get('href')
+        #     icon = social.find('img') or social.find('i')
+        #     label = icon.get('alt') if icon and icon.has_attr('alt') else icon.get('class')[0] if icon else href
+        #     data["social_links"].append({"platform": label, "url": href})
 
-        for social in footer.select('.social a[href]'):
-            href = social.get('href')
-            icon = social.find('img') or social.find('i')
-            label = icon.get('alt') if icon and icon.has_attr('alt') else icon.get('class')[0] if icon else href
-            data["social_links"].append({"platform": label, "url": href})
-
-        return data
+        return {
+    "emails": emails,
+    "phones": phones,
+    "addresses": addresses
+}
 
     except Exception as e:
         print(f"[ERROR] {e}")
