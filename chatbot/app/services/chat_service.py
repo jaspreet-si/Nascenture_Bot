@@ -1,6 +1,3 @@
-# Setup of OS API keys
-from dotenv import load_dotenv
-import os
 
 from datetime import datetime
 
@@ -9,50 +6,54 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 from langchain.chains import ConversationalRetrievalChain
 from langchain.prompts import PromptTemplate
-from utils.common import llm , pc , embeddings, scraped_index, faq_index
+from utils.common import llm , pc , embeddings, scraped_index
 
 
-try:
-    faq_raw_index = pc.Index("faq-index")
-    faq_raw_index.delete
-except:
-    print("something went wrong")
+faq_raw_index = pc.Index("faq-index")
 
 
 
 class SessionManager:
-    def __init__(self):
+    def __init__(self, max_age_hours=7):
         self.sessions = {}
+        self.max_age_hours = max_age_hours
         self.scheduler = BackgroundScheduler()
         self.scheduler.add_job(self.clean_old_sessions, "interval", hours=1)
         self.scheduler.start()
-
+        
+    def __del__(self):
+        # Ensure scheduler is shut down properly
+        self.scheduler.shutdown()
+        
     def handle_session(self, session_id):
-        if session_id in self.sessions:
-            return self.sessions[session_id]
-        else:
+        if session_id not in self.sessions:
             self.sessions[session_id] = {
                 "created_at": datetime.now(),
                 "memory": ConversationBufferMemory(memory_key="chat_history", return_messages=True),
                 "last_active": datetime.now()
             }
+        else:
+            # Update last active time
+            self.sessions[session_id]["last_active"] = datetime.now()
+            
         return self.sessions[session_id]
 
-    def clean_old_sessions(self, max_age_hours=7):
-
+    def clean_old_sessions(self):
+        now = datetime.now()
         for session_id in list(self.sessions.keys()):
             session = self.sessions[session_id]
             age = now - session["last_active"]
-            if age.total_seconds() > max_age_hours * 3600:
+            if age.total_seconds() > self.max_age_hours * 3600:
                 session["memory"].clear()
                 del self.sessions[session_id]
 
-    def clear_session(self,session_id):
+    def clear_session(self, session_id):
         if session_id in self.sessions:
             session = self.sessions[session_id]
             session["memory"].clear()
-            del session
-            return "session clear successfully"
+            del self.sessions[session_id]
+            return "Session cleared successfully"
+        return "Session not found"
 
 
 # 5) Define Conversational Retrieval Chain with custom prompt
@@ -127,7 +128,10 @@ def chat_bot(query,session_id):
         top_match = faq_result.matches[0] if faq_result.matches else None
 
         # Check for high-confidence FAQ match
-        if top_match and top_match.score > 0.85 or top_match.metadata.get("question").lower() == query.lower():
+        if top_match and (
+                top_match.score > 0.85 or
+                (top_match.metadata.get("question") and top_match.metadata.get("question").lower() == query.lower())
+            ):
             matched_answer = top_match.metadata.get("answer")
             if matched_answer:
                 session["memory"].chat_memory.add_user_message(query)
