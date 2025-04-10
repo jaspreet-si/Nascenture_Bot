@@ -131,7 +131,7 @@ def chat_bot(query,session_id):
                 session["last_active"] = datetime.now()
                 return matched_answer
             
-        retriever = scraped_index.as_retriever(search_type = "similarity",search_kwargs={"k": 1})
+        retriever = scraped_index.as_retriever(search_type = "similarity",search_kwargs={"k": 3})
         docs = retriever.invoke(query)
         print('docs',docs)
         if not docs:
