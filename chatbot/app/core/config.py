@@ -11,4 +11,3 @@ class Settings(BaseSettings):
         
 
 settings = Settings()
-print(settings.OPENAI_API_KEY, "\n",settings.PINECONE_API_KEY, settings.PINECONE_ENVIRONMENT)

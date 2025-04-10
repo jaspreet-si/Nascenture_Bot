@@ -12,7 +12,6 @@ class ChatRequest(BaseModel):
 
 @router.post("/chat/")
 async def chat(request: ChatRequest):
-    print("Called-------")
     try:
         response = chat_bot(request.query, request.session_id)
         if not response:
