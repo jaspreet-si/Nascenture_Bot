@@ -7,7 +7,7 @@ from starlette.middleware.gzip import GZipMiddleware
 def add_cors(app: FastAPI):
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["https://nascenture.com",
+        allow_origins=["https://www.nascenture.com",
                        "https://faq-manager.onrender.com",
                        "https://nascenture-chatbot.onrender.com",
                        "http://localhost",
