@@ -62,20 +62,12 @@ class SessionManager:
 company_prompt = """
 You are an AI assistant for Nascenture, a web and mobile services company.
 Use the following pieces of retrieved context to answer the user's question.
-If a match is found, return the original answer from the context as-is.
-Do not summarize or rephrase unless absolutely necessary.
-Only say "I don't know" if there is absolutely no related information.
-Special instructions:
-    - If user asks for a link/page/URL, provide the relevant URL from the context
-    - If contact synonyms appear in the input, include "SHOW_CONTACT_FORM" in your response
-    - Otherwise, don't mention contacting the company
     
 Context: {context}
 
 Chat History: {chat_history}
 
 Question: {question}
-
 
 Remember: If the user refers to "the company" or similar phrases, they are talking about Nascenture.
 Be helpful, concise, and professional in your responses.
@@ -139,9 +131,9 @@ def chat_bot(query,session_id):
                 session["last_active"] = datetime.now()
                 return matched_answer
             
-        retriever = scraped_index.as_retriever(search_type = "similarity",search_kwargs={"k": 5})
+        retriever = scraped_index.as_retriever(search_type = "similarity",search_kwargs={"k": 1})
         docs = retriever.invoke(query)
-
+        print('docs',docs)
         if not docs:
             return "I don't have information about it right now. Please try again later."
 
