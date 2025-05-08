@@ -7,7 +7,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from langchain.chains import ConversationalRetrievalChain
 from langchain.prompts import PromptTemplate
 from utils.common import llm , pc , embeddings, scraped_index
-
+import re
 
 faq_raw_index = pc.Index("faq-index")
 
@@ -74,7 +74,9 @@ Be helpful, concise, and professional in your responses.
 
 Answer:
 """
-
+def is_valid_input(query):
+    # Must contain at least 2 real-looking words, no gibberish or random letters
+    return bool(re.search(r'\b[a-zA-Z]{3,}\b.*\b[a-zA-Z]{3,}\b', query))
 def create_qa_chain(memory,retriever):
     CUSTOM_PROMPT = PromptTemplate(
         template=company_prompt,
@@ -103,6 +105,8 @@ def chat_bot(query,session_id):
         return "Session cleared successfully."
         
     try:
+        if not is_valid_input(query):
+            return "I'm sorry, I couldn't understand your question. Can you please rephrase it?"
         # response = qa_chain.invoke({"question": query})
     
         # end_time = time.time()
@@ -131,11 +135,11 @@ def chat_bot(query,session_id):
                 session["last_active"] = datetime.now()
                 return matched_answer
             
-        retriever = scraped_index.as_retriever(search_type = "similarity",search_kwargs={"k": 3})
-        docs = retriever.invoke(query)
-        print('docs',docs)
-        if not docs:
-            return "I don't have information about it right now. Please try again later."
+        if top_match.score > 0.95:
+            retriever = scraped_index.as_retriever(search_type = "similarity",search_kwargs={"k": 3})
+            
+        else:
+            return "Sorry, I couldn't find anything on that right now. Feel free to ask something else!"
 
 
         # Step 3: Build QA chain
