@@ -74,9 +74,9 @@ Be helpful, concise, and professional in your responses.
 
 Answer:
 """
-def is_valid_input(query):
-    # Must contain at least 2 real-looking words, no gibberish or random letters
-    return bool(re.search(r'\b[a-zA-Z]{3,}\b.*\b[a-zA-Z]{3,}\b', query))
+# def is_valid_input(query):
+#     # Must contain at least 2 real-looking words, no gibberish or random letters
+#     return bool(re.search(r'\b[a-zA-Z]{3,}\b.*\b[a-zA-Z]{3,}\b', query))
 def create_qa_chain(memory,retriever):
     CUSTOM_PROMPT = PromptTemplate(
         template=company_prompt,
@@ -105,8 +105,8 @@ def chat_bot(query,session_id):
         return "Session cleared successfully."
         
     try:
-        if not is_valid_input(query):
-            return "I'm sorry, I couldn't understand your question. Can you please rephrase it?"
+        # if not is_valid_input(query):
+        #     return "I'm sorry, I couldn't understand your question. Can you please rephrase it?"
         # response = qa_chain.invoke({"question": query})
     
         # end_time = time.time()
