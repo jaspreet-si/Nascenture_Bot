@@ -136,16 +136,13 @@ def chat_bot(query,session_id):
                 session["memory"].chat_memory.add_ai_message(matched_answer)
                 session["last_active"] = datetime.now()
                 return matched_answer
-        return top_match.score     
-        if top_match and top_match.score > 0.95:
-            retriever = scraped_index.as_retriever(search_type = "similarity",search_kwargs={"k": 3})
-            docs = retriever.invoke(query)
-           
-            if not docs:
-                return "Sorry, I couldn't find anything on that right now. Feel free to ask something else!"
+       
+        retriever = scraped_index.as_retriever(search_type = "similarity",search_kwargs={"k": 3})
+        docs = retriever.invoke(query)
+       
+        if not docs:
+            return "Sorry, I couldn't find anything on that right now. Feel free to ask something else!"
 
-        else:
-            return "I'm sorry, I couldn't understand your question. Could you please rephrase it?"
         # Step 3: Build QA chain
         qa_chain = create_qa_chain(session["memory"],retriever)
 
