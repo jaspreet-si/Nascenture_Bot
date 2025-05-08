@@ -1,17 +1,15 @@
-
 from datetime import datetime
+import re
+import random
 
 from langchain.memory import ConversationBufferMemory
 from apscheduler.schedulers.background import BackgroundScheduler
-
 from langchain.chains import ConversationalRetrievalChain
 from langchain.prompts import PromptTemplate
-from utils.common import llm , pc , embeddings, scraped_index
-import re
+from utils.common import llm, pc, embeddings, scraped_index
 
+# Initialize FAQ index
 faq_raw_index = pc.Index("faq-index")
-
-
 
 class SessionManager:
     def __init__(self, max_age_hours=7):
@@ -52,15 +50,13 @@ class SessionManager:
             session = self.sessions[session_id]
             session["memory"].clear()
             del self.sessions[session_id]
-            return "Session cleared successfully"
-        return "Session not found"
+            return "Session cleared successfully! How can I help you today?"
+        return "Session not found. How can I help you today?"
 
-
-# 5) Define Conversational Retrieval Chain with custom prompt
-
+# Enhanced company prompt with improved structure, tone, and personality
 company_prompt = """
 You are a friendly and helpful AI assistant for Nascenture, a web and mobile services company.
-Use the context below to answer the user's question in a clear, professional, and conversational tone.
+Use the context below to answer the user's question in a clear, professional, conversational, and warm tone.
 
 Context: {context}
 
@@ -69,17 +65,65 @@ Chat History: {chat_history}
 Question: {question}
 
 Instructions:
-- When the user asks about services, offerings, or capabilities, list them in bullet or numbered format.
-- Be friendly, warm, and approachable in your responses — like you're chatting with a client.
-- If the question is unclear or gibberish, respond kindly and ask for clarification.
-- Keep answers informative but easy to read.
+1. When discussing services, break them down into clear categories with examples:
+   - Web Design: Describe custom web designs tailored to business needs
+   - Custom Software Development: Explain how you build software that addresses specific business challenges
+   - Ongoing Support & Maintenance: Detail regular updates, bug fixes, and system monitoring
 
-Answer:
+2. Always use a friendly, warm tone:
+   - Start responses with greetings like "Hey there!" or "Great question!"
+   - End with encouraging phrases like "Feel free to ask if you need more details!"
+
+3. For unclear inputs:
+   - Respond with empathy and humor: "Oops! I didn't quite catch that."
+   - Guide users back to relevant topics
+
+4. Always suggest follow-up questions or next steps after answering
+
+5. Structure information in digestible chunks with examples for each point
+
+Answer in a conversational, helpful tone:
 """
 
+# Dictionary of friendly greetings and closings for randomization
+friendly_greetings = [
+    "Hey there! ",
+    "Hi! ",
+    "Great question! ",
+    "Thanks for asking! ",
+    "I'd be happy to help! "
+]
 
+friendly_closings = [
+    "Feel free to ask if you need more details! I'm here to help.",
+    "Is there anything specific about this you'd like to know more about?",
+    "Let me know if you have any other questions!",
+    "Would you like to know more about any of our other services?",
+    "Anything else I can help you with today?"
+]
 
-def create_qa_chain(memory,retriever):
+# Responses for unclear or gibberish inputs
+unclear_responses = [
+    "Oops! Looks like I didn't quite catch that. Could you clarify? I'm here to help!",
+    "I'm not sure what that means, but I'm here to help you with anything related to web or app development. Let me know what you need!",
+    "Hmm, I didn't understand that. Want to know about our services instead? I'd be happy to explain!",
+    "I think I missed something there. Could you rephrase? I can help with web design, software development, or support services."
+]
+
+# Service descriptions with examples for when asked about services
+service_descriptions = """
+Hey there! Here's what Nascenture can do for you:
+
+• Web Design: Custom web designs tailored to your business needs. Example: We created a responsive e-commerce site for a local boutique that increased their online sales by 45%.
+
+• Custom Software Development: We build software that addresses specific business challenges. Example: Developing an inventory management system for a manufacturing client that streamlined their operations and reduced errors by 60%.
+
+• Ongoing Support & Maintenance: Regular updates, bug fixes, and system monitoring. Example: Providing 24/7 support for mission-critical applications, ensuring 99.9% uptime for our clients.
+
+Would you like more details about any of these services? Or would you like to discuss how we can help with your specific project?
+"""
+
+def create_qa_chain(memory, retriever):
     CUSTOM_PROMPT = PromptTemplate(
         template=company_prompt,
         input_variables=["context", "chat_history", "question"]
@@ -91,32 +135,58 @@ def create_qa_chain(memory,retriever):
         memory=memory,
         combine_docs_chain_kwargs={"prompt": CUSTOM_PROMPT}
     )
+
+def is_gibberish(query):
+    """Check if input might be gibberish or unclear"""
+    # Check for very short inputs or random character sequences
+    if len(query) < 2:
+        return True
+    
+    # Check for inputs with unusual character distributions
+    letter_ratio = sum(c.isalpha() for c in query) / len(query) if query else 0
+    if letter_ratio < 0.5 and len(query) > 3:
+        return True
+    
+    # Check for keyboard mashing patterns
+    if re.search(r'([qwerty]+|[asdfgh]+|[zxcvb]+){2,}', query.lower()):
+        return True
+        
+    return False
+
+def enhance_response(response):
+    """Add friendly greeting and closing to responses"""
+    greeting = random.choice(friendly_greetings)
+    closing = random.choice(friendly_closings)
+    
+    # Avoid adding greeting if response already has one
+    if any(response.startswith(g.strip()) for g in friendly_greetings):
+        return f"{response}\n\n{closing}"
+    
+    return f"{greeting}{response}\n\n{closing}"
+
 session_manager = SessionManager()
-# 6) Main chatbot function with session handling
-def chat_bot(query,session_id):
 
-    
-
+def chat_bot(query, session_id):
     session = session_manager.handle_session(session_id)
-    # qa_chain = create_qa_chain(session["memory"])
-
-    
     
     if query.lower() == 'clear':
-        session_manager.clear_session(session_id)
-        return "Session cleared successfully."
+        return session_manager.clear_session(session_id)
+    
+    # Special handling for "what services do you provide?" type questions
+    if re.search(r'services|offer|provide|do you (do|make)|capabilities', query.lower()):
+        session["memory"].chat_memory.add_user_message(query)
+        session["memory"].chat_memory.add_ai_message(service_descriptions)
+        return service_descriptions
+        
+    # Handle gibberish or unclear inputs
+    if is_gibberish(query):
+        response = random.choice(unclear_responses)
+        session["memory"].chat_memory.add_user_message(query)
+        session["memory"].chat_memory.add_ai_message(response)
+        return response
         
     try:
-        # if not is_valid_input(query):
-        #     return "I'm sorry, I couldn't understand your question. Can you please rephrase it?"
-        # response = qa_chain.invoke({"question": query})
-    
-        # end_time = time.time()
-        # elapsed_time = end_time - start_time
-        
-        # print("Time taken for response:", elapsed_time, "seconds")
-        # return response['answer']
- 
+        # Check for FAQ match first
         query_vector = embeddings.embed_query(query)
         faq_result = faq_raw_index.query(
             vector=query_vector,
@@ -128,37 +198,38 @@ def chat_bot(query,session_id):
         # Check for high-confidence FAQ match
         if top_match and (
                 top_match.score > 0.85 or
-                (top_match.metadata.get("question") and top_match.metadata.get("question").lower() == query.lower())
+                (top_match.metadata.get("question") and 
+                 top_match.metadata.get("question").lower() == query.lower())
             ):
             matched_answer = top_match.metadata.get("answer")
             if matched_answer:
+                enhanced_matched_answer = enhance_response(matched_answer)
                 session["memory"].chat_memory.add_user_message(query)
-                session["memory"].chat_memory.add_ai_message(matched_answer)
+                session["memory"].chat_memory.add_ai_message(enhanced_matched_answer)
                 session["last_active"] = datetime.now()
-                return matched_answer
+                return enhanced_matched_answer
        
-        retriever = scraped_index.as_retriever(search_type = "similarity",search_kwargs={"k": 3})
+        # No FAQ match, use retrieval
+        retriever = scraped_index.as_retriever(search_type="similarity", search_kwargs={"k": 3})
         docs = retriever.invoke(query)
        
         if not docs:
-            return "Sorry, I couldn't find anything on that right now. Feel free to ask something else!"
+            fallback_response = "I don't have specific information on that right now. Would you like to know about our services instead, or perhaps I can help you get in touch with our team?"
+            enhanced_fallback = enhance_response(fallback_response)
+            return enhanced_fallback
 
-        # Step 3: Build QA chain
-        qa_chain = create_qa_chain(session["memory"],retriever)
-
-        # Step 4: Invoke LLM
+        # Build QA chain with retriever and get response
+        qa_chain = create_qa_chain(session["memory"], retriever)
         response = qa_chain.invoke({"question": query})
-
-        return response['answer']
-
         
+        # Enhance the response with friendly tone
+        enhanced_response = enhance_response(response['answer'])
+        return enhanced_response
+
     except Exception as e:
         print(f"Error: {e}")
+        error_response = "Sorry, I'm having a bit of trouble processing that request. Would you like to know about our services or how we can help with your project instead?"
+        return enhance_response(error_response)
         
-    session_manager.clean_old_sessions()
-
-     
-# if __name__ == "__main__":
-#     chat_with_bot("contact form", "user_1")
-    
-# nbot = chat_bot()
+    finally:
+        session_manager.clean_old_sessions()
