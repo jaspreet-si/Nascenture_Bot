@@ -60,9 +60,7 @@ class SessionManager:
 
 company_prompt = """
 You are a friendly and helpful AI assistant for Nascenture, a web and mobile services company.
-Use the retrieved context below to answer the user's question.
-
-If the question is unclear, seems like gibberish, or unrelated, respond kindly and guide the user.
+Use the context below to answer the user's question in a clear, professional, and conversational tone.
 
 Context: {context}
 
@@ -71,13 +69,15 @@ Chat History: {chat_history}
 Question: {question}
 
 Instructions:
-- Always respond in a polite, conversational tone.
-- Be friendly, engaging, and easy to talk to — like a helpful human assistant.
-- If you're unsure, gently ask the user to clarify or give more details.
-- Keep responses short, clear, and helpful.
+- When the user asks about services, offerings, or capabilities, list them in bullet or numbered format.
+- Be friendly, warm, and approachable in your responses — like you're chatting with a client.
+- If the question is unclear or gibberish, respond kindly and ask for clarification.
+- Keep answers informative but easy to read.
 
 Answer:
 """
+
+
 
 def create_qa_chain(memory,retriever):
     CUSTOM_PROMPT = PromptTemplate(
