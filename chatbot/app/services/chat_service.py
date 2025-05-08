@@ -62,21 +62,24 @@ class SessionManager:
 company_prompt = """
 You are an AI assistant for Nascenture, a web and mobile services company.
 Use the following pieces of retrieved context to answer the user's question.
-    
+
+If the input seems unclear, gibberish, or unrelated to the company (like random characters or small talk),
+respond politely and guide the user back to a helpful question.
+
 Context: {context}
 
 Chat History: {chat_history}
 
 Question: {question}
 
-Remember: If the user refers to "the company" or similar phrases, they are talking about Nascenture.
-Be helpful, concise, and professional in your responses.
+Remember:
+- If the user refers to "the company" or similar phrases, they mean Nascenture.
+- If the question seems like nonsense or too vague, respond helpfully and ask them to clarify.
+- Keep a friendly, helpful tone — like a professional customer support assistant.
 
 Answer:
 """
-# def is_valid_input(query):
-#     # Must contain at least 2 real-looking words, no gibberish or random letters
-#     return bool(re.search(r'\b[a-zA-Z]{3,}\b.*\b[a-zA-Z]{3,}\b', query))
+
 def create_qa_chain(memory,retriever):
     CUSTOM_PROMPT = PromptTemplate(
         template=company_prompt,
