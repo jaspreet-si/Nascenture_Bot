@@ -138,7 +138,14 @@ def create_qa_chain(memory, retriever):
 
 def is_gibberish(query):
     """Check if input might be gibberish or unclear"""
-    # Check for very short inputs or random character sequences
+    # Create a whitelist of common greetings
+    common_greetings = ["hi", "hello", "hey", "greetings", "good morning", "good afternoon", "good evening", "howdy"]
+    
+    # If the input is a common greeting, it's not gibberish
+    if query.lower().strip() in common_greetings:
+        return False
+    
+    # Check for very short inputs that aren't greetings
     if len(query) < 2:
         return True
     
@@ -172,6 +179,43 @@ def chat_bot(query, session_id):
     if query.lower() == 'clear':
         return session_manager.clear_session(session_id)
     
+    # First check for matches in the Pinecone database for all queries
+    query_vector = embeddings.embed_query(query)
+    faq_result = faq_raw_index.query(
+        vector=query_vector,
+        top_k=1,
+        include_metadata=True
+    )
+    top_match = faq_result.matches[0] if faq_result.matches else None
+
+    # Check for high-confidence FAQ match
+    if top_match and (
+            top_match.score > 0.85 or
+            (top_match.metadata.get("question") and 
+             top_match.metadata.get("question").lower() == query.lower())
+        ):
+        matched_answer = top_match.metadata.get("answer")
+        if matched_answer:
+            enhanced_matched_answer = enhance_response(matched_answer)
+            session["memory"].chat_memory.add_user_message(query)
+            session["memory"].chat_memory.add_ai_message(enhanced_matched_answer)
+            session["last_active"] = datetime.now()
+            return enhanced_matched_answer
+   
+    # If no match in Pinecone, then handle greetings
+    common_greetings = ["hi", "hello", "hey", "greetings", "good morning", "good afternoon", "good evening", "howdy"]
+    if query.lower().strip() in common_greetings:
+        greeting_responses = [
+            "Hey there! Thanks for reaching out to Nascenture. How can I help you today? I can tell you about our web design, software development, or support services.",
+            "Hello! I'm Nascenture's virtual assistant. I'd be happy to help you with information about our services or answer any questions you might have.",
+            "Hi there! Welcome to Nascenture. I'm here to assist with your web and mobile service needs. What can I help you with today?",
+            "Greetings! Thanks for connecting with Nascenture. Would you like to know about our services or discuss a specific project?"
+        ]
+        response = random.choice(greeting_responses)
+        session["memory"].chat_memory.add_user_message(query)
+        session["memory"].chat_memory.add_ai_message(response)
+        return response
+
     # Special handling for "what services do you provide?" type questions
     if re.search(r'services|offer|provide|do you (do|make)|capabilities', query.lower()):
         session["memory"].chat_memory.add_user_message(query)
@@ -186,28 +230,7 @@ def chat_bot(query, session_id):
         return response
         
     try:
-        # Check for FAQ match first
-        query_vector = embeddings.embed_query(query)
-        faq_result = faq_raw_index.query(
-            vector=query_vector,
-            top_k=1,
-            include_metadata=True
-        )
-        top_match = faq_result.matches[0] if faq_result.matches else None
-
-        # Check for high-confidence FAQ match
-        if top_match and (
-                top_match.score > 0.85 or
-                (top_match.metadata.get("question") and 
-                 top_match.metadata.get("question").lower() == query.lower())
-            ):
-            matched_answer = top_match.metadata.get("answer")
-            if matched_answer:
-                enhanced_matched_answer = enhance_response(matched_answer)
-                session["memory"].chat_memory.add_user_message(query)
-                session["memory"].chat_memory.add_ai_message(enhanced_matched_answer)
-                session["last_active"] = datetime.now()
-                return enhanced_matched_answer
+        # Pinecone check already done above, so we move straight to retrieval
        
         # No FAQ match, use retrieval
         retriever = scraped_index.as_retriever(search_type="similarity", search_kwargs={"k": 3})
